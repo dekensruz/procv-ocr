@@ -1,0 +1,40 @@
+# Reads the text of job offers published as images or scanned PDFs (MediaCongo, UBS Congo, Kivu10) with
+# Tesseract, a free open-source OCR engine, and saves it in Supabase. Free: no paid service, no API key.
+# Secrets to add in GitHub > Settings > Secrets and variables > Actions:
+#   SUPABASE_URL               https://<project-ref>.supabase.co
+#   SUPABASE_SERVICE_ROLE_KEY  Supabase > Project Settings > API > service_role key
+name: OCR des offres en image
+
+on:
+  schedule:
+    - cron: '20 */2 * * *' # every 2 hours, 20 minutes after jobs-sync
+  workflow_dispatch: # "Run workflow" button in the Actions tab
+
+concurrency:
+  group: ocr-offers
+  cancel-in-progress: false
+
+jobs:
+  ocr:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts
+
+      - name: Installer Tesseract (français + anglais) et Poppler
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq tesseract-ocr tesseract-ocr-fra tesseract-ocr-eng poppler-utils
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Lire les offres
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          OCR_LIMIT: 40
+        run: node scripts/ocr-offers.mjs
